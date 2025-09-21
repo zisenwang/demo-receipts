@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { products } from '@/data/products';
 import { Product } from '@/types/product';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 export default function Home() {
   const [cartMap, setCartMap] = useState<Map<string, number>>(new Map());
@@ -45,17 +46,36 @@ export default function Home() {
     
     setIsGenerating(true);
     try {
-      console.log('Generating receipt for:', cart);
+      const response = await fetch('/api/receipt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items: cart }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate receipt');
+      }
+
+      const data = await response.json();
+      
+      // Show success message or redirect to QR code page
+      alert(`Receipt generated! Order ID: ${data.orderId}\nShort URL: ${data.shortUrl}`);
+      
     } catch (error) {
       console.error('Error generating receipt:', error);
+      alert('Failed to generate receipt. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto">
+    <>
+      {isGenerating && <LoadingScreen message="Generating your receipt..." />}
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8">Electronic Receipt Demo</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -139,7 +159,8 @@ export default function Home() {
             )}
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
