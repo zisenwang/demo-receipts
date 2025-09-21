@@ -44,3 +44,18 @@ export async function generatePresignedUrl(s3Key: string, expiresIn: number = 36
   const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
   return signedUrl;
 }
+
+export async function getPDFStreamFromS3(s3Key: string) {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: s3Key,
+  });
+
+  const response = await s3Client.send(command);
+  
+  if (!response.Body) {
+    throw new Error('PDF not found in S3');
+  }
+
+  return response.Body; // Return stream directly
+}
