@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CartItem } from '@/types/product';
-import { generateReceiptPDF, uploadPDFToS3, createReceiptToken } from '@/lib';
+import { generateReceiptPDF, uploadPDFToS3, createReceiptToken, generateShortId, storeShortUrl } from '@/lib';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -30,9 +30,13 @@ export async function POST(request: NextRequest) {
     // Create JWT token
     const token = createReceiptToken(orderId, s3Key, timestamp);
 
+    // Generate short ID and store mapping
+    const shortId = generateShortId();
+    storeShortUrl(shortId, token);
+
     // Create short URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
-    const shortUrl = `${baseUrl}/r/${token}`;
+    const shortUrl = `${baseUrl}/r/${shortId}`;
 
     return NextResponse.json({
       success: true,

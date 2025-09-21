@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
-import { verifyReceiptToken } from '@/lib/jwt';
-import { generatePresignedUrl } from '@/lib/s3';
+import { verifyReceiptToken, getTokenFromShortId, generatePresignedUrl } from '@/lib';
 
 interface PageProps {
   params: {
@@ -9,8 +8,24 @@ interface PageProps {
 }
 
 export default async function ReceiptRedirect({ params }: PageProps) {
+  let presignedUrl = '/receipt-error';
   try {
-    const { token } = params;
+    const { token: shortId } = params;
+    console.log('shortId', shortId);
+
+    // Get JWT token from short ID
+    const token = getTokenFromShortId(shortId);
+    console.log('token', token);
+    if (!token) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Invalid Receipt Link</h1>
+            <p className="text-gray-600">This receipt link is invalid or has expired.</p>
+          </div>
+        </div>
+      );
+    }
 
     // Verify JWT token
     const payload = verifyReceiptToken(token);
@@ -27,10 +42,9 @@ export default async function ReceiptRedirect({ params }: PageProps) {
     }
 
     // Generate presigned URL for S3 access
-    const presignedUrl = await generatePresignedUrl(payload.s3Key);
-    
-    // Redirect to the presigned URL
-    redirect(presignedUrl);
+    presignedUrl = await generatePresignedUrl(payload.s3Key);
+
+    console.log('presignedUrl', presignedUrl);
 
   } catch (error) {
     console.error('Error accessing receipt:', error);
@@ -43,5 +57,7 @@ export default async function ReceiptRedirect({ params }: PageProps) {
         </div>
       </div>
     );
+  } finally {
+    redirect(presignedUrl)
   }
 }

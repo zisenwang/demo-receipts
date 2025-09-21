@@ -62,7 +62,7 @@ export default function Home() {
       
       // Show success message or redirect to QR code page
       alert(`Receipt generated! Order ID: ${data.orderId}\nShort URL: ${data.shortUrl}`);
-      
+      console.log(`Receipt generated! Order ID: ${data.orderId}\nShort URL: ${data.shortUrl}`);
     } catch (error) {
       console.error('Error generating receipt:', error);
       alert('Failed to generate receipt. Please try again.');
