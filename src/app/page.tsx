@@ -1,103 +1,145 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useMemo } from 'react';
+import { products } from '@/data/products';
+import { Product } from '@/types/product';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [cartMap, setCartMap] = useState<Map<string, number>>(new Map());
+  const [isGenerating, setIsGenerating] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const productIndex = useMemo(() => {
+    const m = new Map(products.map(p => [p.id, p]));
+    return m;
+  }, []);
+
+  const addOne = (id: string) => setCartMap(prev => {
+    const next = new Map(prev);
+    next.set(id, (next.get(id) ?? 0) + 1);
+    return next;
+  });
+
+  const removeOne = (id: string) => setCartMap(prev => {
+    const next = new Map(prev);
+    const q = (next.get(id) ?? 0) - 1;
+    q <= 0 ? next.delete(id) : next.set(id, q);
+    return next;
+  });
+
+  const cart = useMemo(() => {
+    const items: { product: Product; quantity: number }[] = [];
+    cartMap.forEach((qty, id) => {
+      const p = productIndex.get(id);
+      if (p) items.push({ product: p, quantity: qty });
+    });
+    return items;
+  }, [cartMap, productIndex]);
+
+  const total = useMemo(() => 
+    cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0),
+    [cart]
+  );
+
+  const generateReceipt = async () => {
+    if (cart.length === 0) return;
+    
+    setIsGenerating(true);
+    try {
+      console.log('Generating receipt for:', cart);
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-center mb-8">Electronic Receipt Demo</h1>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <h2 className="text-xl font-semibold mb-4">Products</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {products.map(product => {
+                const quantity = cartMap.get(product.id) ?? 0;
+                return (
+                  <div key={product.id} className="bg-white rounded-lg shadow p-4">
+                    <div className="w-full h-32 bg-gradient-to-br from-blue-50 to-indigo-100 rounded mb-3 flex items-center justify-center">
+                      <span className="text-4xl">
+                        {product.id === '1' && '☕'}
+                        {product.id === '2' && '🧁'}
+                        {product.id === '3' && '🥪'}
+                        {product.id === '4' && '🧃'}
+                        {product.id === '5' && '🍪'}
+                        {product.id === '6' && '🍵'}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold">{product.name}</h3>
+                    <p className="text-gray-600 text-sm">{product.description}</p>
+                    <div className="flex justify-between items-center mt-3">
+                      <span className="text-lg font-bold">${product.price.toFixed(2)}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => removeOne(product.id)}
+                          disabled={quantity === 0}
+                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center font-medium">{quantity}</span>
+                        <button
+                          onClick={() => addOne(product.id)}
+                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4 h-fit">
+            <h2 className="text-xl font-semibold mb-4">Cart</h2>
+            {cart.length === 0 ? (
+              <p className="text-gray-500">Your cart is empty</p>
+            ) : (
+              <>
+                {cart.map(item => (
+                  <div key={item.product.id} className="flex justify-between items-center mb-3 pb-3 border-b">
+                    <div>
+                      <h4 className="font-medium">{item.product.name}</h4>
+                      <p className="text-sm text-gray-600">${item.product.price.toFixed(2)} × {item.quantity}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">${(item.product.price * item.quantity).toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+                
+                <div className="pt-3 mt-3 border-t">
+                  <div className="flex justify-between font-semibold text-lg mb-4">
+                    <span>Total:</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                  
+                  <button
+                    onClick={generateReceipt}
+                    disabled={isGenerating}
+                    className="w-full bg-green-500 text-white py-3 rounded font-semibold hover:bg-green-600 disabled:bg-gray-400"
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate Receipt'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
