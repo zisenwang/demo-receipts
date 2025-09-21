@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { verifyReceiptToken, getTokenFromShortId, generatePresignedUrl } from '@/lib';
+import { verifyReceiptToken, generatePresignedUrl, getTokenFromShortId } from '@/lib';
 
 interface PageProps {
   params: {
@@ -10,21 +10,15 @@ interface PageProps {
 export default async function ReceiptRedirect({ params }: PageProps) {
   let presignedUrl = '/receipt-error';
   try {
-    const { token: shortId } = params;
+    const { token: shortId } = await params;
     console.log('shortId', shortId);
 
-    // Get JWT token from short ID
-    const token = getTokenFromShortId(shortId);
-    console.log('token', token);
+    // Get JWT token from Redis
+    const token = await getTokenFromShortId(shortId);
     if (!token) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Invalid Receipt Link</h1>
-            <p className="text-gray-600">This receipt link is invalid or has expired.</p>
-          </div>
-        </div>
-      );
+      // Token not found in Redis (expired or invalid)
+      console.log('Token not found in Redis');
+      return;
     }
 
     // Verify JWT token

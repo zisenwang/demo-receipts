@@ -4,10 +4,12 @@ import { useState, useMemo } from 'react';
 import { products } from '@/data/products';
 import { Product } from '@/types/product';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { QRCodeDisplay } from '@/components/ui/QRCodeDisplay';
 
 export default function Home() {
   const [cartMap, setCartMap] = useState<Map<string, number>>(new Map());
   const [isGenerating, setIsGenerating] = useState(false);
+  const [receiptData, setReceiptData] = useState<{shortUrl: string, orderId: string, total: string} | null>(null);
 
   const productIndex = useMemo(() => {
     const m = new Map(products.map(p => [p.id, p]));
@@ -60,9 +62,15 @@ export default function Home() {
 
       const data = await response.json();
       
-      // Show success message or redirect to QR code page
-      alert(`Receipt generated! Order ID: ${data.orderId}\nShort URL: ${data.shortUrl}`);
-      console.log(`Receipt generated! Order ID: ${data.orderId}\nShort URL: ${data.shortUrl}`);
+      // Store receipt data to show QR code
+      setReceiptData({
+        shortUrl: data.shortUrl,
+        orderId: data.orderId,
+        total: data.total
+      });
+      
+      // Clear cart after successful generation
+      setCartMap(new Map());
     } catch (error) {
       console.error('Error generating receipt:', error);
       alert('Failed to generate receipt. Please try again.');
@@ -74,6 +82,14 @@ export default function Home() {
   return (
     <>
       {isGenerating && <LoadingScreen message="Generating your receipt..." />}
+      {receiptData && (
+          <QRCodeDisplay
+            value={receiptData.shortUrl}
+            title="Scan for Receipt"
+            subtitle="Scan this QR code to access your receipt"
+            onClose={() => setReceiptData(null)}
+          />
+      )}
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8">Electronic Receipt Demo</h1>

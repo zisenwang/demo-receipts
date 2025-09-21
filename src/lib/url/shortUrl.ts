@@ -1,65 +1,37 @@
 import { randomBytes } from 'crypto';
-import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { Redis } from '@upstash/redis';
 
-// File-based storage for persistence across serverless requests
-const STORAGE_FILE = join(process.cwd(), 'url-mappings.json');
-
-function loadMappings(): Map<string, string> {
-  if (existsSync(STORAGE_FILE)) {
-    try {
-      const data = readFileSync(STORAGE_FILE, 'utf-8');
-      const obj = JSON.parse(data);
-      return new Map(Object.entries(obj));
-    } catch (error) {
-      console.error('Error loading mappings:', error);
-    }
-  }
-  return new Map();
-}
-
-function saveMappings(mappings: Map<string, string>): void {
-  try {
-    const obj = Object.fromEntries(mappings);
-    writeFileSync(STORAGE_FILE, JSON.stringify(obj, null, 2));
-  } catch (error) {
-    console.error('Error saving mappings:', error);
-  }
-}
+// Redis client for URL mappings
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!
+});
 
 export function generateShortId(): string {
-  const mappings = loadMappings();
-  let shortId: string;
-  let attempts = 0;
-  const maxAttempts = 100; // Prevent infinite loops
-  
-  do {
-    // Generate 6-character random string
-    shortId = randomBytes(3).toString('hex');
-    attempts++;
-    
-    if (attempts >= maxAttempts) {
-      // If too many collisions, increase length
-      shortId = randomBytes(4).toString('hex'); // 8 characters
-      break;
-    }
-  } while (mappings.has(shortId));
-  
-  return shortId;
+  // Generate 8-character random string (nice and short!)
+  return randomBytes(4).toString('hex');
 }
 
-export function storeShortUrl(shortId: string, token: string): void {
-  const mappings = loadMappings();
-  mappings.set(shortId, token);
-  saveMappings(mappings);
-  console.log('Stored mapping:', shortId, '→', token.substring(0, 20) + '...');
+export async function storeShortUrl(shortId: string, token: string): Promise<void> {
+  try {
+    // Store with 24 hour expiry
+    await redis.set(shortId, token, { ex: 86400 });
+    console.log('Stored mapping in Redis:', shortId, '→', token.substring(0, 20) + '...');
+  } catch (error) {
+    console.error('Error storing to Redis:', error);
+    throw error;
+  }
 }
 
-export function getTokenFromShortId(shortId: string): string | null {
-  const mappings = loadMappings();
-  const token = mappings.get(shortId) || null;
-  console.log('Retrieved mapping:', shortId, '→', token ? token.substring(0, 20) + '...' : 'null');
-  return token;
+export async function getTokenFromShortId(shortId: string): Promise<string | null> {
+  try {
+    const token = await redis.get(shortId) as string | null;
+    console.log('Retrieved mapping from Redis:', shortId, '→', token ? token.substring(0, 20) + '...' : 'null');
+    return token;
+  } catch (error) {
+    console.error('Error retrieving from Redis:', error);
+    return null;
+  }
 }
 
 // Clean up expired entries (optional)

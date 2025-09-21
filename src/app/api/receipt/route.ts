@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
     // Create JWT token
     const token = createReceiptToken(orderId, s3Key, timestamp);
 
-    // Generate short ID and store mapping
+    // Generate short ID and store in Redis
     const shortId = generateShortId();
-    storeShortUrl(shortId, token);
+    await storeShortUrl(shortId, token);
 
     // Create short URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
